@@ -10,7 +10,6 @@ UNMAPPED = "UNMAPPED"
 
 # ---------------- Parsers per dataset ----------------
 
-
 def parse_cremad(fname: str):
     """
     CREMA-D: '1001_DFA_ANG_XX.wav' -> third token is emotion code
@@ -28,8 +27,9 @@ def parse_ravdess(fname: str):
     """
     RAVDESS: '03-01-05-01-01-01-01.wav'
     third field is emotion code:
-      01 NEU, 03 HAP, 04 SAD, 05 ANG, 06 FEA, 07 DIS
-      (02 calm, 08 surprise are skipped)
+      01 NEU, 02 calm -> NEU
+      03 HAP, 04 SAD, 05 ANG, 06 FEA, 07 DIS
+      08 surprise skipped
     """
     parts = Path(fname).stem.split("-")
     if len(parts) < 3:
@@ -37,29 +37,41 @@ def parse_ravdess(fname: str):
     emo = parts[2]
     mapping = {
         "01": "NEU",
+        "02": "NEU",  # calm merged into neutral
         "03": "HAP",
         "04": "SAD",
         "05": "ANG",
         "06": "FEA",
         "07": "DIS",
+        # "08": None  # surprise skipped
     }
     return mapping.get(emo)
 
 
 def parse_tess(fname: str):
     """
-    TESS: filename contains emotion word (e.g., 'OAF_happy.wav').
-    Surprise/pleasant_surprise are skipped.
+    TESS: filename contains emotion word.
+    Only map neutral/calm to NEU.
+    Surprise and pleasant_surprise are skipped exactly like original code.
     """
     name = Path(fname).stem.lower()
+
+    # Skip surprises
     if "pleasant_surprise" in name or "surprise" in name:
         return None
+
+    # Map neutral/calm to NEU
+    neutral_words = ["neutral", "calm"]
+    for w in neutral_words:
+        if re.search(rf"(?:^|[_-]){w}(?:$|[_-])", name):
+            return "NEU"
+
+    # Other emotions as in original code
     word_map = {
         "angry": "ANG",
         "disgust": "DIS",
         "fear": "FEA",
         "happy": "HAP",
-        "neutral": "NEU",
         "sad": "SAD",
     }
     for w, code in word_map.items():
@@ -70,8 +82,8 @@ def parse_tess(fname: str):
 
 def parse_savee(fname: str):
     """
-    SAVEE prefixes: a=ANG, d=DIS, f=FEA, h=HAP, n=NEU, sa=SAD, su=surprise (skip)
-    Examples: 'DC_a01.wav', 'JE_sa12.wav', 'KL_su07.wav'
+    SAVEE prefixes: a=ANG, d=DIS, f=FEA, h=HAP, n=NEU, sa=SAD, su=surprise skipped
+    Only map n -> NEU; HAP unchanged
     """
     stem = Path(fname).stem.lower()
     m = re.search(r"[a-z]{2}_?([a-z]+)\d+", stem)
@@ -80,9 +92,10 @@ def parse_savee(fname: str):
     tok = m.group(1)
     if tok.startswith("sa"):
         return "SAD"
-    if tok.startswith("su"):
-        return None  # skip surprise
-    mapping = {"a": "ANG", "d": "DIS", "f": "FEA", "h": "HAP", "n": "NEU"}
+    if tok.startswith("n"):
+        return "NEU"
+    # HAP same as original code
+    mapping = {"a": "ANG", "d": "DIS", "f": "FEA", "h": "HAP"}
     return mapping.get(tok[0])
 
 
