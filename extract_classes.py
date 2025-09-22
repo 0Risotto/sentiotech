@@ -29,7 +29,7 @@ def parse_ravdess(fname: str):
     third field is emotion code:
       01 NEU, 02 calm -> NEU
       03 HAP, 04 SAD, 05 ANG, 06 FEA, 07 DIS
-      08 surprise skipped
+      08 surprise skippedd
     """
     parts = Path(fname).stem.split("-")
     if len(parts) < 3:
