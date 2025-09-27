@@ -134,8 +134,9 @@ class AudioDataset(Dataset):
 
     def __getitem__(self, idx):
         wav_path, label = self.df.iloc[idx]
-        
-        label = torch.nn.functional.one_hot(label.long(), self.num_classes)
+
+        label = torch.tensor(label.item(), dtype=torch.long)
+        label = torch.nn.functional.one_hot(label, self.num_classes).float()
         
         wav, sr = torchaudio.load(wav_path)
         wav = ensure_mono(wav)
