@@ -1,7 +1,11 @@
 from dataloader import make_dataloaders
 
 
-DATA_ROOT = "extracted"
+import kagglehub
+
+path = kagglehub.dataset_download("dmitrybabko/speech-emotion-recognition-en")
+
+DATA_ROOT = path
 
 
 train_dl, val_dl, test_dl, id2label, label2id = make_dataloaders(

@@ -10,9 +10,8 @@ import soundfile as sf
 
 TARGET_SR = 16000
 CLIP_SECONDS = 2.0
-
-
-def load_with_soundfile(path: str) -> Tuple[np.ndarray, int]:
+    
+def load_with_soundfile(path: str) -> Tuple[np.ndarray, int]: # use torchaudio.load instead it provide exact thing with no extra lines of code
     """
     Returns (audio_float32_mono_or_stereo, sample_rate)
     """
@@ -22,9 +21,15 @@ def load_with_soundfile(path: str) -> Tuple[np.ndarray, int]:
     return wav, sr
 
 
-def ensure_mono(wav: np.ndarray) -> np.ndarray:
+def ensure_mono(wav: np.ndarray | torch.Tensor) -> np.ndarray | torch.Tensor: # added support for torchtensor
     if wav.ndim == 2:
-        wav = wav.mean(axis=1)
+
+        if isinstance(wav, torch.Tensor):
+            wav = wav.mean(dim=0)
+
+        if isinstance(wav, np.ndarray):
+            wav = wav.mean(axis=1)
+
     return wav
 
 
@@ -36,14 +41,21 @@ def resample_if_needed(wav: np.ndarray, sr: int, target_sr: int) -> np.ndarray:
     return wav_rs.numpy()
 
 
-def pad_or_trim(wav: np.ndarray, target_len: int) -> np.ndarray:
+def pad_or_trim(wav: np.ndarray|torch.Tensor, target_len: int) -> np.ndarray | torch.Tensor: # added support for torch tensors
     n = wav.shape[0]
-    if n > target_len:
-        return wav[:target_len]
-    if n < target_len:
-        return np.pad(wav, (0, target_len - n), mode="constant")
-    return wav
 
+    if isinstance(wav, np.ndarray):
+        if n > target_len:
+            return wav[:target_len]
+        if n < target_len:
+            return np.pad(wav, (0, target_len - n), mode="constant")
+
+    if isinstance(wav, torch.Tensor):
+        if n > target_len:
+            return wav[:target_len]
+        if n < target_len:
+            return torch.cat([wav, torch.zeros(target_len - n)])
+    return wav
 
 class AudioFolderDataset(Dataset):
     """
@@ -110,6 +122,30 @@ class AudioFolderDataset(Dataset):
         wav = pad_or_trim(wav, self.target_len)
         return torch.from_numpy(wav.astype(np.float32)), label
 
+class AudioDataset(Dataset):
+    def __init__(self, df, target_sr, target_len, num_classes):
+        self.df = df
+        self.target_sr = target_sr
+        self.target_len = target_len
+        self.num_classes = num_classes
+        
+    def __len__(self):
+        return len(self.df)
+
+    def __getitem__(self, idx):
+        wav_path, label = self.df.iloc[idx]
+
+        label = torch.tensor(label.item(), dtype=torch.long)
+        label = torch.nn.functional.one_hot(label, self.num_classes).float()
+        
+        wav, sr = torchaudio.load(wav_path)
+        wav = ensure_mono(wav)
+        
+        assert isinstance(wav, torch.Tensor)
+        wav = torchaudio.functional.resample(wav, sr, self.target_sr)
+        
+        wav = pad_or_trim(wav, self.target_len * self.target_sr)
+        return wav, label
 
 # --------- Collate functions -------------------------------------------------
 def collate_fixed_length(
