@@ -25,23 +25,21 @@ class Extract3channels(torch.nn.Module):
         return torch.stack([x, delta, delta_delta], dim=1)
 
 def training_iterator(epochs, testing_freq):
-    testing_count = ceil(epochs / testing_freq)
-    train_counter = 0
     test_counter = 0
-    for i in range(epochs + testing_count):
-        if train_counter > 0 and train_counter % testing_freq == 0:
+    for train_counter in range(1, epochs + 1):
+
+        yield "training", train_counter
+
+        if train_counter > 1 and train_counter % testing_freq == 0:
             test_counter += 1
             yield "testing", test_counter
-
-        else:
-            train_counter += 1
-            yield "training", train_counter
 
 def train(model, dataloader, transforms, loss_fn, eval_metrics, optim):
     model.train()
     outs = []
+    labels = []
     total_loss = 0
-    for inputs, labels in tqdm(dataloader):
+    for inputs, label in tqdm(dataloader):
         model.zero_grad()
         
         inputs = transforms(inputs)
@@ -50,28 +48,29 @@ def train(model, dataloader, transforms, loss_fn, eval_metrics, optim):
         batch_size = out.shape[0]
         out = out.reshape(batch_size, -1)
 
-        loss = loss_fn(out, labels)
+        loss = loss_fn(out, label)
         total_loss += loss.item()
         
         outs.append(out)
-        outs.append(labels)
+        labels.append(label)
 
         loss.backward()
         optim.step()
         
     scores = {}
+    outs = torch.cat(outs, dim=0)
+    labels = torch.cat(labels, dim=0)
     for metric, fn in eval_metrics.items():
-        assert isinstance(outs, list)
-        
+
         if "logits" in metric:
-            score = fn(torch.stack(outs), torch.stack(labels))
+            score = fn(outs, labels)
         else:
-            outs = torch.stack(outs).softmax(1).argmax(1)
-            score = fn(outs, torch.stack(labels))
-        
+            score = fn(outs.softmax(1).argmax(1), labels.argmax(1))
+
         scores[metric] = score
-    scores["loss"] = total_loss / len(dataloader)
-    
+        
+    for metric, score in scores.items():
+        print(f"{metric}: {round(score, 3) if isinstance(score, float) else score}", end="||")
     return scores
 
 
@@ -79,8 +78,9 @@ def train(model, dataloader, transforms, loss_fn, eval_metrics, optim):
 def test(model, dataloader, transforms, loss_fn, eval_metrics):
     model.eval()
     outs = []
+    labels = []
     total_loss = 0
-    for inputs, labels in tqdm(dataloader):
+    for inputs, label in tqdm(dataloader):
 
         inputs = transforms(inputs)
         
@@ -88,22 +88,26 @@ def test(model, dataloader, transforms, loss_fn, eval_metrics):
         batch_size = out.shape[0]
         out = out.reshape(batch_size, -1)
 
-        loss = loss_fn(out, labels)
+        loss = loss_fn(out, label)
         total_loss += loss.item()
 
         outs.append(out)
-        outs.append(labels)
+        labels.append(label)
         
     scores = {}
+    outs = torch.cat(outs, dim=0)
+    labels = torch.cat(labels, dim=0)
     for metric, fn in eval_metrics.items():
-        assert isinstance(outs, list)
-        
+
         if "logits" in metric:
-            score = fn(torch.stack(outs), torch.stack(labels))
+            score = fn(outs, labels)
         else:
-            outs = torch.stack(outs).softmax(1).argmax(1)
-            score = fn(outs, torch.stack(labels))
+            score = fn(outs.softmax(1).argmax(1), labels.argmax(1))
         
         scores[metric] = score
+        
+    for metric, score in scores.items():
+        print(f"{metric}: {round(score, 3) if isinstance(score, float) else score}", end="||")
+        
     scores["loss"] = total_loss / len(dataloader)
     return scores

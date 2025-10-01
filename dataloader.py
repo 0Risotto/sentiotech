@@ -123,17 +123,18 @@ class AudioFolderDataset(Dataset):
         return torch.from_numpy(wav.astype(np.float32)), label
 
 class AudioDataset(Dataset):
-    def __init__(self, df, target_sr, target_len, num_classes):
-        self.df = df
+    def __init__(self, df, target_sr, target_len, num_classes, device="cpu"):
+        self._df = df
         self.target_sr = target_sr
         self.target_len = target_len
         self.num_classes = num_classes
+        self.device = device
         
     def __len__(self):
-        return len(self.df)
+        return len(self._df)
 
     def __getitem__(self, idx):
-        wav_path, label = self.df.iloc[idx]
+        wav_path, label = self._df.iloc[idx]
 
         label = torch.tensor(label.item(), dtype=torch.long)
         label = torch.nn.functional.one_hot(label, self.num_classes).float()
@@ -145,7 +146,14 @@ class AudioDataset(Dataset):
         wav = torchaudio.functional.resample(wav, sr, self.target_sr)
         
         wav = pad_or_trim(wav, self.target_len * self.target_sr)
-        return wav, label
+        
+        return wav.to(self.device), label.to(self.device)
+    
+    def to(self, device):
+        self.device = device
+        
+    def data(self):
+        return self._df
 
 # --------- Collate functions -------------------------------------------------
 def collate_fixed_length(
