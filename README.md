@@ -2,5 +2,5 @@
 A voice emotion recognition application
 
 ### Link for dataset
-https://www.kaggle.c-om/datasets/dmitrybabko/speech-emotion-recognition-en/data
+https://www.kaggle.com/datasets/dmitrybabko/speech-emotion-recognition-en/data
 
