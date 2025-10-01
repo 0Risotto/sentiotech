@@ -73,24 +73,24 @@ print(dataset_df.iloc[train_dataset.indices]["emotion"].value_counts()) # shows 
 
 print(CLASSES) # shows each class with it encoded number
 
-# model parameters == start
-# model = TestModel(3, NUM_CLASSES)#...
-# model = model.to(DEVICE)
-# optim = AdamW(model.parameters(), lr=1e-3) #...
-# loss_fn = CrossEntropyLoss()#...
-# # model parameters == end
+model parameters == start
+model = TestModel(3, NUM_CLASSES)#...
+model = model.to(DEVICE)
+optim = AdamW(model.parameters(), lr=1e-3) #...
+loss_fn = CrossEntropyLoss()#...
+# model parameters == end
 
-# summary = []
-# start = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+summary = []
+start = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-# for mode, epoch in training_iterator(EPOCHS, TESTING_FREQUENCY):
-#     if mode == "training":
-#         scores = train(model, train_dataloader, transforms, loss_fn, eval_metrics, optim)
-#     if mode == "testing":
-#         scores = test(model, test_dataloader, transforms, loss_fn, eval_metrics)
+for mode, epoch in training_iterator(EPOCHS, TESTING_FREQUENCY):
+    if mode == "training":
+        scores = train(model, train_dataloader, transforms, loss_fn, eval_metrics, optim)
+    if mode == "testing":
+        scores = test(model, test_dataloader, transforms, loss_fn, eval_metrics)
     
-#     summary.append({"mode":mode, "epoch":epoch, **scores})
+    summary.append({"mode":mode, "epoch":epoch, **scores})
 
-# end = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+end = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-# pd.DataFrame(summary).to_csv(start + " -- " + end + ".csv", index=False)
+pd.DataFrame(summary).to_csv(start + " -- " + end + ".csv", index=False)
