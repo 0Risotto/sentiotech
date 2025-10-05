@@ -2,6 +2,7 @@ from pathlib import Path
 from datetime import datetime
 import pandas as pd
 import kagglehub
+import torch
 from torch.optim import AdamW
 from torch.nn import CrossEntropyLoss
 from torch.utils.data import DataLoader
@@ -73,7 +74,8 @@ print(dataset_df.iloc[train_dataset.indices]["emotion"].value_counts()) # shows 
 
 print(CLASSES) # shows each class with it encoded number
 
-model parameters == start
+#model parameters == start
+
 model = TestModel(3, NUM_CLASSES)#...
 model = model.to(DEVICE)
 optim = AdamW(model.parameters(), lr=1e-3) #...
@@ -94,3 +96,5 @@ for mode, epoch in training_iterator(EPOCHS, TESTING_FREQUENCY):
 end = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 pd.DataFrame(summary).to_csv(start + " -- " + end + ".csv", index=False)
+
+torch.save(model.state_dict(), "emotion_model.pth")

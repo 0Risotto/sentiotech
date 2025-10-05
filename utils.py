@@ -111,3 +111,12 @@ def test(model, dataloader, transforms, loss_fn, eval_metrics):
         
     scores["loss"] = total_loss / len(dataloader)
     return scores
+
+def _flatten_logits_if_needed(logits: torch.Tensor):
+    """
+    Flattens logits if the model outputs more than 2 dimensions.
+    Ensures shape [batch_size, num_classes].
+    """
+    if logits.ndim > 2:
+        return logits.view(logits.size(0), -1)
+    return logits
