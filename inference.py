@@ -28,7 +28,7 @@ class Extract3channels(torch.nn.Module):
 
     def forward(self, x):
         x = self.mel_spectorgram(x)
-        x = torch.log10(x)
+        x = torch.log10(x+1)
         delta = torchaudio.functional.compute_deltas(x)
         delta_delta = torchaudio.functional.compute_deltas(delta)
         return torch.stack([x, delta, delta_delta], dim=1)
@@ -42,14 +42,14 @@ class Compose(torch.nn.Module):
         for transform in self.transforms:
             x = transform(x)
         return x
-#/home/legion/sentiotech/sentiotech/wav to image-array/audio_test.ipynb
    
 class NormalizePerUtterance(nn.Module):
         def __init__(self):
             super().__init__()
         def forward(self,x):
-            mean = x.mean(dim=(1,2,3))[:,None,None,None]
-            std = x.std(dim=(1,2,3))[:,None,None,None]
+            print(x.shape)
+            mean = x.mean(dim=(1,2))[:,None,None]
+            std = x.std(dim=(1,2))[:,None,None]
             x_normalized =(x- mean)/std
             return x_normalized    
 
@@ -102,7 +102,8 @@ def inference(model,transforms,id_to_label) :
     return _inference
 
 
-model = torch.load("", weights_only=False, map_location="cuda" if torch.cuda.is_available() else "cpu")
+model = torch.load("best_model.pth", weights_only=False, map_location="cuda" if torch.cuda.is_available() else "cpu")
+
 
 transform = [
     process_audio(3,16000),
@@ -122,5 +123,4 @@ id2label = [
 ]
 
 
-MODEL_INFERENCE = inference(model, transform,id2label)
-       
+

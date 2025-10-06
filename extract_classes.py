@@ -1,20 +1,13 @@
-#!/usr/bin/env python3
-# extract_classes.py
 import os, re, shutil, argparse, sys, csv
 from pathlib import Path
 from collections import defaultdict
 
-# Final target classes (uppercase folder names)
 TARGET = {"ANG", "DIS", "FEA", "HAP", "NEU", "SAD"}
 UNMAPPED = "UNMAPPED"
 
-# ---------------- Parsers per dataset ----------------
 
 def parse_cremad(fname: str):
-    """
-    CREMA-D: '1001_DFA_ANG_XX.wav' -> third token is emotion code
-    Allowed codes: ANG, DIS, FEA, HAP, NEU, SAD
-    """
+
     stem = Path(fname).stem
     toks = stem.split("_")
     if len(toks) < 3:
@@ -24,20 +17,13 @@ def parse_cremad(fname: str):
 
 
 def parse_ravdess(fname: str):
-    """
-    RAVDESS: '03-01-05-01-01-01-01.wav'
-    third field is emotion code:
-      01 NEU, 02 calm -> NEU
-      03 HAP, 04 SAD, 05 ANG, 06 FEA, 07 DIS
-      08 surprise skippedd
-    """
     parts = Path(fname).stem.split("-")
     if len(parts) < 3:
         return None
     emo = parts[2]
     mapping = {
         "01": "NEU",
-        "02": "NEU",  # calm merged into neutral
+        "02": "NEU",  
         "03": "HAP",
         "04": "SAD",
         "05": "ANG",
@@ -49,18 +35,11 @@ def parse_ravdess(fname: str):
 
 
 def parse_tess(fname: str):
-    """
-    TESS: filename contains emotion word.
-    Only map neutral/calm to NEU.
-    Surprise and pleasant_surprise are skipped exactly like original code.
-    """
     name = Path(fname).stem.lower()
 
-    # Skip surprises
     if "pleasant_surprise" in name or "surprise" in name:
         return None
 
-    # Map neutral/calm to NEU
     neutral_words = ["neutral", "calm"]
     for w in neutral_words:
         if re.search(rf"(?:^|[_-]){w}(?:$|[_-])", name):
@@ -81,10 +60,6 @@ def parse_tess(fname: str):
 
 
 def parse_savee(fname: str):
-    """
-    SAVEE prefixes: a=ANG, d=DIS, f=FEA, h=HAP, n=NEU, sa=SAD, su=surprise skipped
-    Only map n -> NEU; HAP unchanged
-    """
     stem = Path(fname).stem.lower()
     m = re.search(r"[a-z]{2}_?([a-z]+)\d+", stem)
     if not m:
@@ -94,7 +69,6 @@ def parse_savee(fname: str):
         return "SAD"
     if tok.startswith("n"):
         return "NEU"
-    # HAP same as original code
     mapping = {"a": "ANG", "d": "DIS", "f": "FEA", "h": "HAP"}
     return mapping.get(tok[0])
 
@@ -126,7 +100,6 @@ def iter_wavs(root: Path):
 
 
 def recount_from_disk(out_root: Path):
-    """Ground-truth recount by scanning the output tree."""
     counts = defaultdict(int)
     if not out_root.exists():
         return counts
