@@ -91,28 +91,29 @@ class EfficientNetB0(nn.Module):
 
 
 def inference(model,transforms,id_to_label) :
-    n_mels=128,
-    n_fft=512,                    
-    hop_length=160, 
     def _inference(wave):
         wave = transforms(wave)
+        print(wave.shape)
         wave = model(wave)
         return id_to_label[int(wave.to("cpu").softmax(0).argmax())]
 
     return _inference
 
 
-model = torch.load("best_model.pth", weights_only=False, map_location="cuda" if torch.cuda.is_available() else "cpu")
+model_state = torch.load("best_model.pth", weights_only=False, map_location="cuda" if torch.cuda.is_available() else "cpu")
+model = EfficientNetB0()
+model.load_state_dict(model_state)
 
 
 transform = [
     process_audio(3,16000),
+    lambda x: x.unsqueeze(0),
     Extract3channels(n_mels=128, n_fft=512, hop_length=160),
     NormalizePerUtterance()
 ]
+
 transform = Compose(transform)
 
-## to do later id_to_label 
 id2label = [
 "ANG",  # Angry
 "SAD",  # Sad
