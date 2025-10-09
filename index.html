@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sentiotech - AI Emotion Recognition</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <!-- RecordRTC for audio recording -->
+    <script src="https://cdn.jsdelivr.net/npm/recordrtc@5.6.2/RecordRTC.min.js"></script>
+  </head>
+  <body>
+    <!-- Navigation -->
+    <nav class="navbar">
+      <div class="nav-container">
+        <div class="nav-logo">
+          <i class="fas fa-microphone-alt"></i>
+          <span>Sentiotech</span>
+        </div>
+        <div class="nav-links">
+          <a href="#home" class="nav-link active">Home</a>
+          <a href="#about" class="nav-link">About</a>
+          <a href="#demo" class="nav-link">Demo</a>
+          <a href="#classes" class="nav-link">Classes</a>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section id="home" class="hero">
+      <div class="hero-background">
+        <div class="floating-shapes">
+          <div class="shape shape-1"></div>
+          <div class="shape shape-2"></div>
+          <div class="shape shape-3"></div>
+          <div class="shape shape-4"></div>
+        </div>
+      </div>
+      <div class="hero-content">
+        <div class="hero-text">
+          <h1 class="hero-title">
+            <span class="gradient-text">AI-Powered</span><br />
+            Emotion Recognition
+          </h1>
+          <p class="hero-description">
+            Discover the emotions hidden in speech using advanced machine
+            learning. Our neural network analyzes audio patterns to identify six
+            distinct emotional states.
+          </p>
+          <div class="hero-buttons">
+            <button class="btn btn-primary" onclick="scrollToSection('demo')">
+              <i class="fas fa-microphone"></i>
+              Try Demo
+            </button>
+            <button
+              class="btn btn-secondary"
+              onclick="scrollToSection('about')"
+            >
+              <i class="fas fa-info-circle"></i>
+              Learn More
+            </button>
+          </div>
+        </div>
+        <div class="hero-visual">
+          <div class="audio-visualizer">
+            <div class="visualizer-bars">
+              <div class="bar" style="--delay: 0s"></div>
+              <div class="bar" style="--delay: 0.1s"></div>
+              <div class="bar" style="--delay: 0.2s"></div>
+              <div class="bar" style="--delay: 0.3s"></div>
+              <div class="bar" style="--delay: 0.4s"></div>
+              <div class="bar" style="--delay: 0.5s"></div>
+              <div class="bar" style="--delay: 0.6s"></div>
+              <div class="bar" style="--delay: 0.7s"></div>
+              <div class="bar" style="--delay: 0.8s"></div>
+              <div class="bar" style="--delay: 0.9s"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- About Section -->
+    <section id="about" class="about">
+      <div class="container">
+        <div class="section-header">
+          <h2 class="section-title">How It Works</h2>
+          <p class="section-description">
+            Our emotion recognition system uses state-of-the-art deep learning
+            techniques
+          </p>
+        </div>
+        <div class="process-steps">
+          <div class="step">
+            <div class="step-icon">
+              <i class="fas fa-microphone"></i>
+            </div>
+            <h3>Audio Input</h3>
+            <p>Upload your audio file or record directly through the browser</p>
+          </div>
+          <div class="step">
+            <div class="step-icon">
+              <i class="fas fa-cogs"></i>
+            </div>
+            <h3>Feature Extraction</h3>
+            <p>
+              Convert audio to mel-spectrograms and extract temporal features
+            </p>
+          </div>
+          <div class="step">
+            <div class="step-icon">
+              <i class="fas fa-brain"></i>
+            </div>
+            <h3>Neural Analysis</h3>
+            <p>
+              Deep learning model processes features to identify emotional
+              patterns
+            </p>
+          </div>
+          <div class="step">
+            <div class="step-icon">
+              <i class="fas fa-chart-bar"></i>
+            </div>
+            <h3>Emotion Output</h3>
+            <p>Get detailed results with confidence scores for each emotion</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Emotion Classes Section -->
+    <section id="classes" class="classes">
+      <div class="container">
+        <div class="section-header">
+          <h2 class="section-title">Emotion Classes</h2>
+          <p class="section-description">
+            Our model can identify six distinct emotional states
+          </p>
+        </div>
+        <div class="emotion-grid">
+          <div class="emotion-card" data-emotion="happy">
+            <div class="emotion-icon">
+              <i class="fas fa-smile"></i>
+            </div>
+            <h3>Happy</h3>
+            <p>Joy, excitement, and positive emotions</p>
+          </div>
+          <div class="emotion-card" data-emotion="sad">
+            <div class="emotion-icon">
+              <i class="fas fa-frown"></i>
+            </div>
+            <h3>Sad</h3>
+            <p>Sadness, grief, and melancholic feelings</p>
+          </div>
+          <div class="emotion-card" data-emotion="angry">
+            <div class="emotion-icon">
+              <i class="fas fa-angry"></i>
+            </div>
+            <h3>Angry</h3>
+            <p>Anger, frustration, and aggressive tones</p>
+          </div>
+          <div class="emotion-card" data-emotion="fear">
+            <div class="emotion-icon">
+              <i class="fas fa-surprise"></i>
+            </div>
+            <h3>Fear</h3>
+            <p>Anxiety, worry, and fearful expressions</p>
+          </div>
+          <div class="emotion-card" data-emotion="disgust">
+            <div class="emotion-icon">
+              <i class="fas fa-meh"></i>
+            </div>
+            <h3>Disgust</h3>
+            <p>Revulsion, contempt, and negative reactions</p>
+          </div>
+          <div class="emotion-card" data-emotion="neutral">
+            <div class="emotion-icon">
+              <i class="fas fa-minus"></i>
+            </div>
+            <h3>Neutral</h3>
+            <p>Calm, balanced, and emotionally neutral</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Demo Section -->
+    <section id="demo" class="demo">
+      <div class="container">
+        <div class="section-header">
+          <h2 class="section-title">Try It Yourself</h2>
+          <p class="section-description">
+            Record your voice or upload an audio file to discover the emotions
+            within
+          </p>
+        </div>
+        <div class="demo-container">
+          <!-- Recording Section -->
+          <div class="recording-section">
+            <div class="recording-header">
+              <h3>Record Audio</h3>
+              <p>Click the microphone to start recording your voice</p>
+            </div>
+            <div class="recording-controls">
+              <button class="record-btn" id="recordBtn">
+                <i class="fas fa-microphone"></i>
+                <span id="recordText">Start Recording</span>
+              </button>
+              <div
+                class="recording-status"
+                id="recordingStatus"
+                style="display: none"
+              >
+                <div class="recording-indicator">
+                  <div class="pulse-dot"></div>
+                  <span>Recording...</span>
+                </div>
+                <div class="recording-timer" id="recordingTimer">00:00</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Divider -->
+          <div class="demo-divider">
+            <span>or</span>
+          </div>
+
+          <!-- Upload Section -->
+          <div class="upload-area" id="uploadArea">
+            <div class="upload-content">
+              <div class="upload-icon">
+                <i class="fas fa-cloud-upload-alt"></i>
+              </div>
+              <h3>Drop your audio file here</h3>
+              <p>or <span class="upload-link">browse files</span></p>
+              <p class="upload-formats">Supports: WAV, MP3, M4A</p>
+              <input
+                type="file"
+                id="audioFile"
+                accept="audio/*"
+                style="display: none"
+              />
+            </div>
+          </div>
+
+          <div class="audio-player" id="audioPlayer" style="display: none">
+            <div class="player-controls">
+              <button class="play-btn" id="playBtn">
+                <i class="fas fa-play"></i>
+              </button>
+              <div class="audio-info">
+                <div class="file-name" id="fileName"></div>
+                <div class="audio-progress">
+                  <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                  </div>
+                  <div class="time-display">
+                    <span id="currentTime">0:00</span>
+                    <span id="duration">0:00</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="analyze-section">
+            <button
+              class="btn btn-primary btn-analyze"
+              id="analyzeBtn"
+              disabled
+            >
+              <i class="fas fa-magic"></i>
+              Analyze Emotion
+            </button>
+          </div>
+
+          <div class="results" id="results" style="display: none">
+            <div class="results-header">
+              <h3>Analysis Results</h3>
+              <div class="confidence-score">
+                <span class="score-label">Confidence:</span>
+                <span class="score-value" id="confidenceScore">--</span>
+              </div>
+            </div>
+            <div class="predicted-emotion" id="predictedEmotion">
+              <div class="emotion-result">
+                <div class="emotion-icon-large" id="emotionIconLarge">
+                  <i class="fas fa-question"></i>
+                </div>
+                <div class="emotion-text">
+                  <h2 id="emotionName">--</h2>
+                  <p id="emotionDescription">
+                    Upload an audio file to get started
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div class="probability-breakdown">
+              <h4>Probability Breakdown</h4>
+              <div class="probability-bars" id="probabilityBars">
+                <!-- Probability bars will be generated here -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="container">
+        <div class="footer-content">
+          <div class="footer-logo">
+            <i class="fas fa-microphone-alt"></i>
+            <span>Sentiotech</span>
+          </div>
+          <div class="footer-links">
+            <a href="#home">Home</a>
+            <a href="#about">About</a>
+            <a href="#demo">Demo</a>
+            <a href="#classes">Classes</a>
+          </div>
+        </div>
+        <div class="footer-bottom">
+          <p>&copy; 2024 Sentiotech. All rights reserved.</p>
+        </div>
+      </div>
+    </footer>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+      <div class="loading-spinner">
+        <div class="spinner"></div>
+        <p>Analyzing your audio...</p>
+      </div>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>

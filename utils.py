@@ -3,111 +3,115 @@ import torchaudio
 import torch
 from tqdm import tqdm
 
+
 class Compose(torch.nn.Module):
     def __init__(self, transforms):
         super(Compose, self).__init__()
         self.transforms = transforms
-        
+
     def forward(self, x):
         for transform in self.transforms:
             x = transform(x)
         return x
-    
+
+
 class Extract3channels(torch.nn.Module):
+    """
+    Returns [B, 3, n_mels, T'] = [mel, delta, delta-delta]
+    You MUST pass sample_rate, n_fft, hop_length, n_mels in the ctor.
+    """
+
     def __init__(self, *args, **kwargs):
         super(Extract3channels, self).__init__()
-        self.mel_spectorgram = torchaudio.transforms.MelSpectrogram(*args, **kwargs)
+        self.mel_spectrogram = torchaudio.transforms.MelSpectrogram(*args, **kwargs)
+        self.to_db = torchaudio.transforms.AmplitudeToDB(stype="power")
 
-    def forward(self, x):
-        x = self.mel_spectorgram(x)
-        delta = torchaudio.functional.compute_deltas(x)
-        delta_delta = torchaudio.functional.compute_deltas(delta)
-        return torch.stack([x, delta, delta_delta], dim=1)
+    def forward(self, x):  # x: [B, T] (CPU recommended)
+        m = self.mel_spectrogram(x)  # [B, n_mels, T']
+        m = self.to_db(m)  # log-mel
+        d1 = torchaudio.functional.compute_deltas(m)
+        d2 = torchaudio.functional.compute_deltas(d1)
+        return torch.stack([m, d1, d2], dim=1)  # [B, 3, n_mels, T']
+
 
 def training_iterator(epochs, testing_freq):
-    test_counter = 0
-    for train_counter in range(1, epochs + 1):
+    # test at EACH epoch (including 1) if divisible by testing_freq
+    for ep in range(1, epochs + 1):
+        yield "training", ep
+        if ep % testing_freq == 0:
+            yield "testing", ep
 
-        yield "training", train_counter
 
-        if train_counter > 1 and train_counter % testing_freq == 0:
-            test_counter += 1
-            yield "testing", test_counter
+def _labels_to_indices(y: torch.Tensor) -> torch.Tensor:
+    # Accept either indices or one-hot; return indices
+    return y if y.ndim == 1 else y.argmax(1)
 
-def train(model, dataloader, transforms, loss_fn, eval_metrics, optim):
+
+def _flatten_logits_if_needed(logits: torch.Tensor) -> torch.Tensor:
+    # Expect [B, C]. If [B, C, 1, 1] etc., flatten safely.
+    if logits.ndim > 2:
+        logits = torch.flatten(logits, start_dim=1)
+    return logits
+
+
+def train(model, dataloader, transforms, loss_fn, eval_metrics, optim, device="cpu"):
     model.train()
-    outs = []
-    labels = []
-    total_loss = 0
-    for inputs, label in tqdm(dataloader):
-        model.zero_grad()
-        
-        inputs = transforms(inputs)
-        
-        out = model(inputs)
-        batch_size = out.shape[0]
-        out = out.reshape(batch_size, -1)
+    preds_all, labels_all = [], []
+    total_loss = 0.0
 
-        loss = loss_fn(out, label)
+    for inputs, labels in tqdm(dataloader):
+        optim.zero_grad()
+
+        # Keep transforms on CPU to avoid CUDA-only issues in torchaudio
+        inputs = inputs.float().cpu()  # [B, T]
+        feats = transforms(inputs)  # [B, 3, n_mels, T']
+        feats = feats.to(device)
+
+        logits = model(feats)  # [B, C] expected
+        logits = _flatten_logits_if_needed(logits)
+
+        labels_idx = _labels_to_indices(labels).long().to(device)
+
+        loss = loss_fn(logits, labels_idx)
         total_loss += loss.item()
-        
-        outs.append(out)
-        labels.append(label)
-
         loss.backward()
         optim.step()
-        
-    scores = {}
-    outs = torch.cat(outs, dim=0)
-    labels = torch.cat(labels, dim=0)
-    for metric, fn in eval_metrics.items():
 
-        if "logits" in metric:
-            score = fn(outs, labels)
-        else:
-            score = fn(outs.softmax(1).argmax(1), labels.argmax(1))
+        preds_all.append(logits.detach().cpu().argmax(1))
+        labels_all.append(labels_idx.detach().cpu())
 
-        scores[metric] = score
-        
-    for metric, score in scores.items():
-        print(f"{metric}: {round(score, 3) if isinstance(score, float) else score}", end="||")
+    preds_all = torch.cat(preds_all).numpy()
+    labels_all = torch.cat(labels_all).numpy()
+
+    scores = {name: fn(labels_all, preds_all) for name, fn in eval_metrics.items()}
+    scores["loss"] = total_loss / max(1, len(dataloader))
+    print(" | ".join(f"{k}:{scores[k]:.3f}" for k in scores))
     return scores
 
 
 @torch.no_grad()
-def test(model, dataloader, transforms, loss_fn, eval_metrics):
+def test(model, dataloader, transforms, loss_fn, eval_metrics, device="cpu"):
     model.eval()
-    outs = []
-    labels = []
-    total_loss = 0
-    for inputs, label in tqdm(dataloader):
+    preds_all, labels_all = [], []
+    total_loss = 0.0
 
-        inputs = transforms(inputs)
-        
-        out = model(inputs)
-        batch_size = out.shape[0]
-        out = out.reshape(batch_size, -1)
+    for inputs, labels in tqdm(dataloader):
+        inputs = inputs.float().cpu()
+        feats = transforms(inputs).to(device)
 
-        loss = loss_fn(out, label)
-        total_loss += loss.item()
+        logits = model(feats)
+        logits = _flatten_logits_if_needed(logits)
 
-        outs.append(out)
-        labels.append(label)
-        
-    scores = {}
-    outs = torch.cat(outs, dim=0)
-    labels = torch.cat(labels, dim=0)
-    for metric, fn in eval_metrics.items():
+        labels_idx = _labels_to_indices(labels).long().to(device)
 
-        if "logits" in metric:
-            score = fn(outs, labels)
-        else:
-            score = fn(outs.softmax(1).argmax(1), labels.argmax(1))
-        
-        scores[metric] = score
-        
-    for metric, score in scores.items():
-        print(f"{metric}: {round(score, 3) if isinstance(score, float) else score}", end="||")
-        
-    scores["loss"] = total_loss / len(dataloader)
+        total_loss += loss_fn(logits, labels_idx).item()
+        preds_all.append(logits.detach().cpu().argmax(1))
+        labels_all.append(labels_idx.detach().cpu())
+
+    preds_all = torch.cat(preds_all).numpy()
+    labels_all = torch.cat(labels_all).numpy()
+
+    scores = {name: fn(labels_all, preds_all) for name, fn in eval_metrics.items()}
+    scores["loss"] = total_loss / max(1, len(dataloader))
+    print(" | ".join(f"{k}:{scores[k]:.3f}" for k in scores))
     return scores

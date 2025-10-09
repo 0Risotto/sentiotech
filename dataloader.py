@@ -1,7 +1,6 @@
 import os
 from pathlib import Path
-from typing import List, Tuple, Dict, Optional
-
+from typing import List, Tuple, Dict
 import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader, random_split
@@ -10,26 +9,21 @@ import soundfile as sf
 
 TARGET_SR = 16000
 CLIP_SECONDS = 2.0
-    
-def load_with_soundfile(path: str) -> Tuple[np.ndarray, int]: # use torchaudio.load instead it provide exact thing with no extra lines of code
-    """
-    Returns (audio_float32_mono_or_stereo, sample_rate)
-    """
+
+
+def load_with_soundfile(path: str) -> Tuple[np.ndarray, int]:
     wav, sr = sf.read(path, dtype="float32")
     if np.isscalar(wav):
         wav = np.array([wav], dtype=np.float32)
     return wav, sr
 
 
-def ensure_mono(wav: np.ndarray | torch.Tensor) -> np.ndarray | torch.Tensor: # added support for torchtensor
+def ensure_mono(wav: np.ndarray | torch.Tensor) -> np.ndarray | torch.Tensor:
     if wav.ndim == 2:
-
         if isinstance(wav, torch.Tensor):
-            wav = wav.mean(dim=0)
-
-        if isinstance(wav, np.ndarray):
-            wav = wav.mean(axis=1)
-
+            wav = wav.mean(dim=0)  # [T]
+        else:
+            wav = wav.mean(axis=1)  # [T]
     return wav
 
 
@@ -41,34 +35,23 @@ def resample_if_needed(wav: np.ndarray, sr: int, target_sr: int) -> np.ndarray:
     return wav_rs.numpy()
 
 
-def pad_or_trim(wav: np.ndarray|torch.Tensor, target_len: int) -> np.ndarray | torch.Tensor: # added support for torch tensors
+def pad_or_trim(
+    wav: np.ndarray | torch.Tensor, target_len: int
+) -> np.ndarray | torch.Tensor:
     n = wav.shape[0]
-
-    if isinstance(wav, np.ndarray):
-        if n > target_len:
-            return wav[:target_len]
-        if n < target_len:
+    if n > target_len:
+        return wav[:target_len]
+    if n < target_len:
+        if isinstance(wav, np.ndarray):
             return np.pad(wav, (0, target_len - n), mode="constant")
-
-    if isinstance(wav, torch.Tensor):
-        if n > target_len:
-            return wav[:target_len]
-        if n < target_len:
-            return torch.cat([wav, torch.zeros(target_len - n)])
+        else:
+            return torch.cat(
+                [wav, torch.zeros(target_len - n, dtype=wav.dtype, device=wav.device)]
+            )
     return wav
 
+
 class AudioFolderDataset(Dataset):
-    """
-    Class-per-directory audio dataset.
-
-    root/
-      ├── class_A/ file1.wav, file2.wav, ...
-      ├── class_B/ file3.wav, ...
-      └── ...
-
-    Returns (waveform: torch.FloatTensor [T], label: int).
-    """
-
     def __init__(
         self,
         root: str | Path,
@@ -86,8 +69,8 @@ class AudioFolderDataset(Dataset):
         class_dirs = [p for p in self.root.iterdir() if p.is_dir()]
         if not class_dirs:
             raise RuntimeError(f"No class folders found in {self.root}")
-
         class_dirs.sort(key=lambda p: p.name)
+
         self.classes: List[str] = [p.name for p in class_dirs]
         self.label2id: Dict[str, int] = {c: i for i, c in enumerate(self.classes)}
         self.id2label: Dict[int, str] = {i: c for c, i in self.label2id.items()}
@@ -108,7 +91,6 @@ class AudioFolderDataset(Dataset):
             raise RuntimeError(
                 f"No audio files with {self.extensions} found in {self.root}"
             )
-
         self.items: List[Tuple[Path, int]] = items
 
     def __len__(self) -> int:
@@ -119,53 +101,52 @@ class AudioFolderDataset(Dataset):
         wav, sr = load_with_soundfile(str(path))
         wav = ensure_mono(wav)
         wav = resample_if_needed(wav, sr, self.target_sr)
-        wav = pad_or_trim(wav, self.target_len)
+        wav = pad_or_trim(wav, int(self.clip_seconds * self.target_sr))
         return torch.from_numpy(wav.astype(np.float32)), label
 
+
 class AudioDataset(Dataset):
-    def __init__(self, df, target_sr, target_len, num_classes, device="cpu"):
+    """
+    DataFrame with two columns: [path, label_index].
+    Returns (wave[T], label_index).
+    """
+
+    def __init__(self, df, target_sr, clip_seconds, num_classes, device="cpu"):
         self._df = df
         self.target_sr = target_sr
-        self.target_len = target_len
+        self.clip_seconds = clip_seconds  # seconds
+        self.target_len = int(self.clip_seconds * self.target_sr)  # samples
         self.num_classes = num_classes
         self.device = device
-        
+
     def __len__(self):
         return len(self._df)
 
     def __getitem__(self, idx):
         wav_path, label = self._df.iloc[idx]
+        label = int(label)
 
-        label = torch.tensor(label.item(), dtype=torch.long)
-        label = torch.nn.functional.one_hot(label, self.num_classes).float()
-        
-        wav, sr = torchaudio.load(wav_path)
-        wav = ensure_mono(wav)
-        
-        assert isinstance(wav, torch.Tensor)
-        wav = torchaudio.functional.resample(wav, sr, self.target_sr)
-        
-        wav = pad_or_trim(wav, self.target_len * self.target_sr)
-        
-        return wav.to(self.device), label.to(self.device)
-    
+        wav, sr = torchaudio.load(wav_path)  # [C, T] or [1, T]
+        wav = wav.mean(dim=0) if wav.ndim == 2 else wav  # [T]
+        if sr != self.target_sr:
+            wav = torchaudio.functional.resample(wav, sr, self.target_sr)
+        wav = pad_or_trim(wav, self.target_len)  # [T]
+
+        # Keep waveform CPU to play nice with CPU-only torchaudio transforms
+        return wav.contiguous(), torch.tensor(label, dtype=torch.long)
+
     def to(self, device):
         self.device = device
-        
+
     def data(self):
         return self._df
 
-# --------- Collate functions -------------------------------------------------
+
+# Collates unchanged
 def collate_fixed_length(
     batch: List[Tuple[torch.Tensor, int]],
 ) -> Tuple[torch.Tensor, torch.Tensor]:
-    """
-    Fast path when every item is already the same length (our dataset enforces this).
-    Returns:
-      waveforms: [B, T]
-      labels:    [B]
-    """
-    waves, labels = zip(*batch)  # list of [T], list of ints
+    waves, labels = zip(*batch)
     waves = torch.stack(waves, dim=0)  # [B, T]
     labels = torch.tensor(labels, dtype=torch.long)  # [B]
     return waves, labels
@@ -174,23 +155,13 @@ def collate_fixed_length(
 def collate_variable_length(
     batch: List[Tuple[torch.Tensor, int]],
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """
-    Optional: if you disable pad_or_trim and want dynamic padding.
-    Returns:
-      waves_padded: [B, T_max]
-      lengths:      [B] original lengths
-      labels:       [B]
-    """
     waves, labels = zip(*batch)
     lengths = torch.tensor([w.shape[0] for w in waves], dtype=torch.long)
-    waves_padded = torch.nn.utils.rnn.pad_sequence(
-        waves, batch_first=True
-    )  # [B, T_max]
+    waves_padded = torch.nn.utils.rnn.pad_sequence(waves, batch_first=True)
     labels = torch.tensor(labels, dtype=torch.long)
     return waves_padded, lengths, labels
 
 
-# --------- Dataloaders + Splits ---------------------------------------------
 def make_splits(
     ds: Dataset,
     train_ratio: float = 0.8,
@@ -219,17 +190,12 @@ def make_dataloaders(
     target_sr: int = TARGET_SR,
     clip_seconds: float = CLIP_SECONDS,
 ) -> Tuple[DataLoader, DataLoader, DataLoader, Dict[int, str], Dict[str, int]]:
-    ds = AudioFolderDataset(
-        root=root,
-        target_sr=target_sr,
-        clip_seconds=clip_seconds,
-    )
+    ds = AudioFolderDataset(root=root, target_sr=target_sr, clip_seconds=clip_seconds)
     train_ds, val_ds, test_ds = make_splits(
         ds, train_ratio, val_ratio, test_ratio, seed=seed
     )
 
     collate = collate_fixed_length
-
     train_loader = DataLoader(
         train_ds,
         batch_size=batch_size,
