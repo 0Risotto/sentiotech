@@ -47,7 +47,6 @@ class NormalizePerUtterance(nn.Module):
         def __init__(self):
             super().__init__()
         def forward(self,x):
-            print(x.shape)
             mean = x.mean(dim=(1,2))[:,None,None]
             std = x.std(dim=(1,2))[:,None,None]
             x_normalized =(x- mean)/std
@@ -91,9 +90,6 @@ class EfficientNetB0(nn.Module):
 
 
 def inference(model,transforms,id_to_label) :
-    n_mels=128,
-    n_fft=512,                    
-    hop_length=160, 
     def _inference(wave):
         wave = transforms(wave)
         wave = model(wave)
@@ -102,17 +98,20 @@ def inference(model,transforms,id_to_label) :
     return _inference
 
 
-model = torch.load("best_model.pth", weights_only=False, map_location="cuda" if torch.cuda.is_available() else "cpu")
+model_state = torch.load("best_model.pth", weights_only=False, map_location="cuda" if torch.cuda.is_available() else "cpu")
+model = EfficientNetB0()
+model.load_state_dict(model_state)
 
 
 transform = [
     process_audio(3,16000),
+    lambda x: x.unsqueeze(0),
     Extract3channels(n_mels=128, n_fft=512, hop_length=160),
     NormalizePerUtterance()
 ]
+
 transform = Compose(transform)
 
-## to do later id_to_label 
 id2label = [
 "ANG",  # Angry
 "SAD",  # Sad
