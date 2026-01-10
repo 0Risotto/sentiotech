@@ -56,4 +56,3 @@ We adopted a **two-stage transfer learning** approach:
 
 ---
 
-## 📁 Repository Structure
